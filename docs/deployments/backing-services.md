@@ -1,4 +1,4 @@
-Deployment of backing services for the Event-Driven Architecture Reference Application, which includes Event Streams and Postgresql
+Deployment of backing services for the Event-Driven Architecture Reference Application, which includes Event Streams and Postgresql.  As part of the reference implementation, a Kafka instance is used as the main communication channel for all components of the application, while one of the [components](https://github.com/ibm-cloud-architecture/refarch-kc-container-ms) uses Postgresql for it's backing datastore.  You will need these backing services deployed in the cluster or as a public cloud service before the application will run successfully.
 
 ## Kafka & Event Streams
 
@@ -27,6 +27,35 @@ kubectl create configmap kafka-brokers --from-literal=brokers='<replace with com
 kubectl describe configmap kafka-brokers -n <target k8s namespace / ocp project>
 ```
 
+#### Event Streams Kafka Topics
+
+Regardless of specific deployment targets (OCP, IKS, k8s), the following prerequisite Kubernetes ConfigMap needs to be created to support the deployments of the application's microservices.  These artifacts need to be created once per unique deployment of the entire application and can be shared between application components in the same overall application deployment.  The values of each individual topic name set as a value in this ConfigMap will be used by all microservices to communicate via Kafka.
+
+You can _(and should)_ customize the values _(right-hand side)_ of each of the lines in the `data` section below to ensure your topics are only being published to by the correct deployments of microservices. Do not edit the keys _(left-hand side)_ of the any of the lines in the `data` section below, or else your microservice components will fail to start.
+
+```shell
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-topics
+data:
+  allocatedOrdersTopic: allocated-orders
+  bluewaterContainerTopic: bluewater-container
+  bluewaterProblemTopic: bluewater-problem
+  bluewaterShipTopic: bluewater-ship
+  containersTopic: containers
+  containerAnomalyRetryTopic: container-anomaly-retry
+  containerAnomalyDeadTopic: container-anomaly-dead
+  errorsTopic: errors
+  orderCommandsTopic: order-commands
+  ordersTopic: orders
+  reeferTelemetryTopic: reefer-telemetry
+  rejectedOrdersTopic: rejected-orders
+EOF
+```
+
+
 #### Event Streams API Key
 
 The Event Streams Broker API Key is needed to connect any deployed consumers or producers to the service in IBM Cloud. To avoid sharing security keys, create a Kubernetes Secret in the target cluster you will deploy the application microservices to.  This is available from the Service Credentials information you just created above.
@@ -51,6 +80,34 @@ Regardless of specific deployment targets (OCP, IKS, k8s), the following prerequ
 ```shell
 kubectl create configmap kafka-brokers --from-literal=brokers='<replace with comma-separated list of brokers>' -n <target k8s namespace / ocp project>
 kubectl describe configmap kafka-brokers -n <target k8s namespace / ocp project>
+```
+
+#### Event Streams Kafka Topics
+
+Regardless of specific deployment targets (OCP, IKS, k8s), the following prerequisite Kubernetes ConfigMap needs to be created to support the deployments of the application's microservices.  These artifacts need to be created once per unique deployment of the entire application and can be shared between application components in the same overall application deployment.  The values of each individual topic name set as a value in this ConfigMap will be used by all microservices to communicate via Kafka.
+
+You can _(and should)_ customize the values _(right-hand side)_ of each of the lines in the `data` section below to ensure your topics are only being published to by the correct deployments of microservices. Do not edit the keys _(left-hand side)_ of the any of the lines in the `data` section below, or else your microservice components will fail to start.
+
+```shell
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-topics
+data:
+  allocatedOrdersTopic: allocated-orders
+  bluewaterContainerTopic: bluewater-container
+  bluewaterProblemTopic: bluewater-problem
+  bluewaterShipTopic: bluewater-ship
+  containersTopic: containers
+  containerAnomalyRetryTopic: container-anomaly-retry
+  containerAnomalyDeadTopic: container-anomaly-dead
+  errorsTopic: errors
+  orderCommandTopics: order-commands
+  ordersTopic: orders
+  reeferTelemetryTopic: reefer-telemetry
+  rejectedOrdersTopic: rejected-orders
+EOF
 ```
 
 #### Event Streams API Key
@@ -78,11 +135,11 @@ If you are using Event Streams as your Kafka broker provider and it is deployed 
 
 ### Using community-based Kafka Helm charts, deployed locally in-cluster
 
-If you simply want to deploy Kafka using the open source, community-supported Helm Charts, you can do so with the following commands.
+If you simply want to deploy Kafka using the open source, community-supported Helm Charts, you can do so with the following commands to deploy the [bitnami Kafka Stack Helm Charts](https://bitnami.com/stack/kafka/helm).
 
 #### Environment Considerations
 
-**TODO** Needs update to account for ServiceAccount integration after `helm template` generation
+As of the time of this document being authored, the Bitnami Kafka Stack Helm Chart does not expose the required security configuration elements to run optimally on OpenShift.  After generating the Helm templates below, you may need to manually update the YAML files to apply the ServiceAccount you have configured for your environment to run the containers accordingly.
 
 #### Service Deployment
 
@@ -103,20 +160,48 @@ kubectl create namespace <target namespace>
 mkdir bitnami
 mkdir templates
 helm fetch --untar --untardir bitnami 'bitnami/kafka'
-helm template --name kafka --set persistence.enabled=false --set securityContext.enabled=false \ 
+helm template kafka --set persistence.enabled=false --set securityContext.enabled=false \
+  --set zookeeper.securityContext.enabled=false \
   bitnami/kafka --namespace <target namespace> --output-dir templates
-(kubectl/oc) apply -f templates/kafka/charts/zookeeper/templates/
-(kubectl/oc) apply -f templates/kafka/templates
+(kubectl/oc) apply -R -f templates/
 ```
 It will take a few minutes to get the pods ready.
 
-### Kafka Brokers
+#### Kafka Brokers
 
 Regardless of specific deployment targets (OCP, IKS, k8s), the following prerequisite Kubernetes ConfigMap needs to be created to support the deployments of the application's microservices.  These artifacts need to be created once per unique deployment of the entire application and can be shared between application components in the same overall application deployment.
 
 ```shell
 kubectl create configmap kafka-brokers --from-literal=brokers='<replace with comma-separated list of brokers>' -n <target k8s namespace / ocp project>
 kubectl describe configmap kafka-brokers -n <target k8s namespace / ocp project>
+```
+
+#### Kafka Topics
+
+Regardless of specific deployment targets (OCP, IKS, k8s), the following prerequisite Kubernetes ConfigMap needs to be created to support the deployments of the application's microservices.  These artifacts need to be created once per unique deployment of the entire application and can be shared between application components in the same overall application deployment.  The values of each individual topic name set as a value in this ConfigMap will be used by all microservices to communicate via Kafka.
+
+You can _(and should)_ customize the values _(right-hand side)_ of each of the lines in the `data` section below to ensure your topics are only being published to by the correct deployments of microservices. Do not edit the keys _(left-hand side)_ of the any of the lines in the `data` section below, or else your microservice components will fail to start.
+
+```shell
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-topics
+data:
+  allocatedOrdersTopic: allocated-orders
+  bluewaterContainerTopic: bluewater-container
+  bluewaterProblemTopic: bluewater-problem
+  bluewaterShipTopic: bluewater-ship
+  containersTopic: containers
+  containerAnomalyRetryTopic: container-anomaly-retry
+  containerAnomalyDeadTopic: container-anomaly-dead
+  errorsTopic: errors
+  orderCommandTopics: order-commands
+  ordersTopic: orders
+  reeferTelemetryTopic: reefer-telemetry
+  rejectedOrdersTopic: rejected-orders
+EOF
 ```
 
 ---
@@ -206,8 +291,8 @@ mkdir bitnami
 mkdir templates
 helm fetch --untar --untardir bitnami bitnami/postgresql
 helm template --name postgre-db --set postgresqlPassword=supersecret \
-  --set persistence.enabled=false --set serviceAccount.enabled=true \ 
-  --set serviceAccount.name=<existing service account> bitnami/postgresql \ 
+  --set persistence.enabled=false --set serviceAccount.enabled=true \
+  --set serviceAccount.name=<existing service account> bitnami/postgresql \
   --namespace <target namespace> --output-dir templates
 (kubectl/oc) apply -f templates/postgresql/templates
 ```
@@ -254,3 +339,46 @@ To connect to your database from outside the cluster execute the following comma
     kubectl port-forward --namespace <target namespace> svc/postgre-db-postgresql 5432:5432 &&\
     PGPASSWORD="$POSTGRES_PASSWORD" psql --host 127.0.0.1 -U postgres -p 5432
 ```
+
+## BPM
+
+The containers microservice component of this Reefer Container EDA reference application can be integrated with a BPM process for the the maintenance of the containers. This BPM process will dispatch a field engineer so that the engineer can go to the reefer container to fix it. The process of scheduling an engineer and then completing the work can best be facilitated through a process based, structured workflow. We will be using IBM BPM on Cloud or Cloud Pak for Automation to best demonstrate the workflow. This workflow can be explored in detail [here](https://github.com/ibm-cloud-architecture/refarch-reefer-ml/tree/master/docs/bpm).
+
+In order for the containers microservice to fire the BPM workflow, we need to provide the following information through Kubernetes configMaps and secrets:
+
+1. Provide in a configMap:
+   * the **BPM authentication login endpoint**
+   * the **BPM workflow endpoint**
+   * the **BPM anomaly event threshold**
+   * the **BPM authentication token time expiration**
+
+   ```shell
+   cat <<EOF | kubectl apply -f -
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     name: bpm-anomaly
+   data:
+     url: <replace with your BPM workflow endpoint>
+     login: <replace with your BPM authentication endpoint>
+     expiration: <replace with the number of second for the auth token to expire after>
+     anomalyThreshold: <replace with the number of anomaly events to receive before calling BPM>
+   EOF
+   ```
+
+2. Provide your BPM instance's **credentials** in a secret:
+
+   ```shell
+   kubectl create secret generic bpm-anomaly --from-literal=user='<replace with your BPM user>' --from-literal=password='<replace with your BPM password>' -n <target k8s namespace / ocp project>
+   kubectl describe secrets -n <target k8s namespace / ocp project>
+   ```
+
+**IMPORTANT:** The names for both the secret and configMap (`bpm-anomaly`) is the default the container microservice uses in its [helm chart](https://github.com/ibm-cloud-architecture/refarch-kc-container-ms/tree/master/SpringContainerMS/chart/springcontainerms). Make sure the name for the configMap and secret you create **match** the names you used in the containers microservice's helm chart.
+
+If you do not have access to any BPM instance with this field engineer dispatching workflow, you can bypass the call to BPM by disabling such call in the container microservice component. For doing so, you can use the following container microservice's API endpoints:
+
+1. Enable BPM: [`http://<container_microservice_endpoint>/bpm/enable`](#bpm)
+2. Disable BPM: [`http://<container_microservice_endpoint>/bpm/disable`](#bpm)
+3. BPM status: [`http://<container_microservice_endpoint>/bpm/status`](#bpm)
+
+where `<container_microservice_endpoint>` is the route, ingress or nodeport service you associated to your container microservice component at deployment time.

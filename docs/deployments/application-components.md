@@ -28,17 +28,17 @@ $ kubectl exec -n ${NAMESPACE} -ti ${KPOF} -- bash -c "/opt/kafka/bin/kafka-topi
 
 The topics that need to be created are:
 
-- `bluewaterContainer`
-- `bluewaterShip`
-- `bluewaterProblem`
+- `bluewater-container`
+- `bluewater-ship`
+- `bluewater-problem`
 - `orders`
-- `orderCommands`
+- `order-commands`
 - `rejected-orders`
 - `allocated-orders`
 - `errors`
 - `containers`
 - `containerMetrics`
-- `reeferTelemetries`
+- `reefer-telemetry`
 
 The command `scripts/createTopicsOnK8S.sh` creates those topics automatically.
 
@@ -67,7 +67,7 @@ ibmcloud cr namespace-add ibmcaseeda
 We will use this namespace when tagging the docker images for our microservices. Here is an example of tagging:
 
 ```shell
-docker tag ibmcase/kc-ui us.icr.io/ibmcaseeda/kc-ui:latest
+docker tag ibmcase/kcontainer-ui us.icr.io/ibmcaseeda/kcontainer-ui:latest
 ```
 
 To see the images in your private registry you can use the user interface at [https://cloud.ibm.com/containers-kubernetes/registry/main/private](https://cloud.ibm.com/containers-kubernetes/registry/main/private) or the command:
@@ -489,20 +489,20 @@ cd refarch-kc-ui/
 * Build the image
 
 ```shell
-docker build -t kc-ui:latest -f Dockerfile .
+docker build -t kcontainer-ui:latest -f Dockerfile .
 ```
 
 * Tag the image
 
 ```shell
-docker tag kc-ui <private-registry>/<image-namespace>/kc-ui:latest
+docker tag kc-ui <private-registry>/<image-namespace>/kcontainer-ui:latest
 ```
 
 * Push the image
 
 ```shell
 docker login <private-registry>
-docker push <private-registry>/<image-namespace>/kc-ui:latest
+docker push <private-registry>/<image-namespace>/kcontainer-ui:latest
 ```
 
 * Generate application YAMLs via `helm template` with the following parameters:
@@ -532,41 +532,7 @@ Point your web browser to [http://cluster-endpoints:31010](#) and login with use
 
 ## Integration Tests
 
-Integration tests are provided in the [itg-tests](itg-tests/) directory and are designed to be run in cluster with the rest of the application components.  However, they are regular Python scripts that can be adapted to be runnable anywhere, given the correct Kafka endpoints and configuration information.  For simplicity, this quick walkthrough will document how you can build and deploy Docker images that will run the integration tests inside the cluster, with the results visible via `kubectl logs` and the rest of the application's APIs.
-
-* Build the base Docker image
-```shell
-# From the root of the 'refarch-kc' repository
-docker build -f docker/docker-python-tools -t osowski/python-tools .
-docker push osowski/python-tools
-```
-
-The above image is a base Python image with our integration tests, defined in the `itg-tests` directory.  It is a long-running Flask process that provides a simple web server, so once deployed, it will remain available to "exec" into for additional in-cluster CLI interaction.  However, for simplicity, we have defined a few integration scenarios, using a Kubernetes Deployment and multiple Kubernetes Jobs, that will automate some of the integration test scenarios.
-
-* Update the `itg-tests/kustomization.yaml` file with the specifics for your `python-tools` Docker image, changing the `newName` and `newTag` fields, as appropriate, along with the `namespace` field.
-
-* Then run the following the command to apply the customization and deploy to the platform:
-```shell
-# From the root of the 'refarch-kc' repository
-kubectl apply -k itg-tests/
-```
-**NOTE:** `kubectl` must be at level `1.14` or higher for the `-k` flag to be available.
-
-This Kubernetes YAML will create one Deployment and one Job.  The long-running Deployment will run the [OrdersPython/OrderConsumer.py](#) script to watch for order events in the Kafka backend, while the short-lived Job create all the necessary order events via the [es-it/ProducerOrderEvents.py](#) script and publish them to Kafka.
-
-* View the output of the `es-it/ProducerOrderEvents.py` Job:
-```shell
-(kubectl/oc) get jobs | grep kcontainer
-(kubectl/oc) logs -f <pod_name>
-```
-
-* View the output of the `OrdersPython/OrderConsumer.py` Deployment:
-```shell
-(kubectl/oc) get pods | grep consumer
-(kubectl/oc) logs -f <pod_name>
-```
-
-You should see the same Order ID created by the Job in the output of the Deployment's container.
+Integration tests are provided in the [itg-tests/](../../itg-tests/itgtests/) directory and are designed to be run in-cluster with the rest of the application components.  However, they are regular Python scripts that can be adapted to be runnable anywhere, given the correct Kafka endpoints and configuration information.  For simplicity, we have created the integration tests as Kubernetes Jobs for ease of deployment and reuse.
 
 ## Universal deployment considerations
 

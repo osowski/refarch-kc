@@ -40,12 +40,13 @@ fi
 # Set environment variables
 source ${MAIN_DIR}/scripts/setenv.sh $kcenv
 
-if [ "ICP" == "${kcenv}" ]; then
+if [ "OCP" == "${kcenv}" ]; then
     add_cert_to_container_command=" -e PEM_CERT=/tmp/certs/${PEM_FILE} -v ${CA_LOCATION}:/tmp/certs"
     END_SCHEMA_REGISTRY_URL=`echo ${SCHEMA_REGISTRY_URL} | sed 's;https://;;g'`
     FINAL_SCHEMA_REGISTRY_URL="https://token:${KAFKA_APIKEY}@${END_SCHEMA_REGISTRY_URL}" 
 else
     FINAL_SCHEMA_REGISTRY_URL=${SCHEMA_REGISTRY_URL}
+    attach_to_network="--network=docker_default"
 fi
 
 # Run the container consumer
@@ -58,7 +59,7 @@ docker run  -e KAFKA_BROKERS=$KAFKA_BROKERS \
             -e SCHEMA_REGISTRY_URL=$FINAL_SCHEMA_REGISTRY_URL \
             ${add_cert_to_container_command} \
             -v ${MAIN_DIR}:/refarch-kc \
-            --network=docker_default \
+            ${attach_to_network} \
             --rm \
             -ti ibmcase-python:test bash \
             -c "cd /refarch-kc/itg-tests/ContainersPython \
